@@ -11,7 +11,6 @@ _LOGGER = logging.getLogger(__name__)
 DOMAIN = "dvsportal"
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
-    _LOGGER.error(f"async_setup_entry 1")
     coordinator = hass.data[DOMAIN][config_entry.entry_id]["coordinator"]
     existing_sensors = hass.data[DOMAIN][config_entry.entry_id]["car_sensors"]
     
@@ -20,14 +19,12 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         async_add_entities([DVSCarSensor(coordinator, new_license_plate)])
 
     def update_sensors_callback():
-        _LOGGER.error(f"update_sensors_callback")
         known_license_plates = set(hass.data[DOMAIN][config_entry.entry_id]["license_plates"])
         registered_license_plates = set(coordinator.data["license_plates"])
 
         new_license_plates = registered_license_plates - known_license_plates
 
         for new_license_plate in new_license_plates:
-            _LOGGER.error(f"new license plate found: adding {new_license_plate}")
             hass.async_create_task(async_add_car(new_license_plate))
 
         hass.data[DOMAIN][config_entry.entry_id]["license_plates"] = registered_license_plates
@@ -40,6 +37,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
 class DVSCarSensor(CoordinatorEntity, Entity):
     def __init__(self, coordinator, license_plate):
         self._license_plate = license_plate
+        self._attributes = {}
         super().__init__(coordinator)
 
     @property
@@ -53,10 +51,31 @@ class DVSCarSensor(CoordinatorEntity, Entity):
     @property
     def name(self):
         return f"Car {self._license_plate}"
+    
+    @property
+    def extra_state_attributes(self) -> dict:
+        return self._attributes
+
 
     @property
     def state(self):
-        return "present" if self._license_plate in self.coordinator.data["license_plates"] else "not present"
+        reservation = self.coordinator.data.get("active_reservations", {}).get(self._license_plate)
+        if reservation is None:
+            self._attributes = {}
+            return "not present"
+        
+        self._attributes =  reservation
+
+
+        now = datetime.now()
+        valid_until = datetime.strptime(reservation.get("valid_until", "1900-01-01T00:00:00"), "%Y-%m-%dT%H:%M:%S")
+        valid_from = datetime.strptime(reservation.get("valid_from", "1900-01-01T00:00:00"), "%Y-%m-%dT%H:%M:%S")
+        
+        if valid_until > now and valid_from <= now:
+            return "present"
+        else:
+            return "reserved"
+        return "unknown"
 
 
 class BalanceSensor(CoordinatorEntity, SensorEntity):
@@ -114,11 +133,12 @@ class ActiveReservationsSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def name(self) -> str:
-        return "Active Reservations"
+        return "Reservations"
 
     @property
     def state(self) -> int:
-        active_reservations = self.coordinator.data.get("active_reservations", [])
+        active_reservations = [v for k, v in self.coordinator.data.get("active_reservations", {}).items()]
+
         now = datetime.now()
 
         active_licenseplates = []
@@ -136,7 +156,7 @@ class ActiveReservationsSensor(CoordinatorEntity, SensorEntity):
                     future_licenseplates.append(license_plate)
 
         self._attributes = {
-            "active_licenseplates": active_licenseplates,
+            "current_licenseplates": active_licenseplates,
             "future_licenseplates": future_licenseplates,
         }
         return  len(active_licenseplates) + len(future_licenseplates)

@@ -50,7 +50,7 @@ async def async_setup_entry(hass: core.HomeAssistant, entry: config_entries.Conf
             return {
                 "balance": dvs_portal.balance,
                 "active_reservations": dvs_portal.active_reservations,
-                "license_plates":  [ar['license_plate'] for ar in dvs_portal.active_reservations]
+                "license_plates": list(dvs_portal.active_reservations.keys())
             }
         except Exception as e:
             raise UpdateFailed(f"Error communicating with API: {e}")

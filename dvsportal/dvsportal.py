@@ -153,8 +153,8 @@ class DVSPortal:
 
         self.balance = permit_media.get("Balance")
         self.unit_price = response["Permits"][0].get("UnitPrice")
-        self.active_reservations = [
-            {
+        self.active_reservations = {
+            reservation["LicensePlate"].get("Value"): {
                 "id": reservation.get("ReservationID"),
                 "valid_from": reservation.get("ValidFrom"),
                 "valid_until": reservation.get("ValidUntil"),
@@ -162,8 +162,8 @@ class DVSPortal:
                 "units": reservation.get("Units"),
                 "cost": reservation.get("Units") * self.unit_price if self.unit_price and reservation.get("Units") is not None else None,
             }
-            for reservation in permit_media.get("ActiveReservations", [])
-        ]
+            for reservation in permit_media.get("ActiveReservations", {})
+        }
         self.license_plates = {
             license_plate.get("Value", ""): license_plate.get("Name")
             for license_plate in permit_media.get("LicensePlates", [])
