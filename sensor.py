@@ -15,23 +15,30 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     coordinator = hass.data[DOMAIN][config_entry.entry_id]["coordinator"]
     existing_sensors = hass.data[DOMAIN][config_entry.entry_id]["car_sensors"]
     
-    new_entities = [BalanceSensor(coordinator), ActiveReservationsSensor(coordinator)]
-    
-    for license_plate in coordinator.data["license_plates"]:
-        _LOGGER.error(f"async_setup_entry 2")
-        if license_plate not in existing_sensors:
-            _LOGGER.error(f"async_setup_entry 3")
-            new_sensor = DVSCarSensor(license_plate, coordinator)
-            new_entities.append(new_sensor)
-            existing_sensors.add(license_plate)
-            
-    if new_entities:
-        _LOGGER.error(f"async_setup_entry 4")
-        async_add_entities(new_entities)
+    async def async_add_car(new_license_plate):
+        """Add new DVSCarSensor."""
+        async_add_entities([DVSCarSensor(coordinator, new_license_plate)])
+
+    def update_sensors_callback():
+        _LOGGER.error(f"update_sensors_callback")
+        known_license_plates = set(hass.data[DOMAIN][config_entry.entry_id]["license_plates"])
+        registered_license_plates = set(coordinator.data["license_plates"])
+
+        new_license_plates = registered_license_plates - known_license_plates
+
+        for new_license_plate in new_license_plates:
+            _LOGGER.error(f"new license plate found: adding {new_license_plate}")
+            hass.async_create_task(async_add_car(new_license_plate))
+
+        hass.data[DOMAIN][config_entry.entry_id]["license_plates"] = registered_license_plates
+
+    async_add_entities([BalanceSensor(coordinator), ActiveReservationsSensor(coordinator)]) # add the default sensors
+    coordinator.async_add_listener(update_sensors_callback) # make sure new kentekens are registered
+    update_sensors_callback() # add the kentekens at the start
         
 
 class DVSCarSensor(CoordinatorEntity, Entity):
-    def __init__(self, license_plate, coordinator):
+    def __init__(self, coordinator, license_plate):
         self._license_plate = license_plate
         super().__init__(coordinator)
 

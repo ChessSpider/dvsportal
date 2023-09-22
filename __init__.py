@@ -44,34 +44,16 @@ async def async_setup_entry(hass: core.HomeAssistant, entry: config_entries.Conf
         user_agent=user_agent,
     )
 
-
-
     async def async_update_data():
         try:
             await dvs_portal.update()
             return {
                 "balance": dvs_portal.balance,
                 "active_reservations": dvs_portal.active_reservations,
-                "license_plates":  [ ar['license_plate'] for ar in dvs_portal.active_reservations]
+                "license_plates":  [ar['license_plate'] for ar in dvs_portal.active_reservations]
             }
         except Exception as e:
             raise UpdateFailed(f"Error communicating with API: {e}")
-
-    def update_sensors_callback():
-        """Update sensors based on new data."""
-        known_license_plates = set(hass.data[DOMAIN][entry.entry_id]["license_plates"])
-        registered_license_plates = set(coordinator.data["license_plates"])
-
-        _LOGGER.error(f"update_sensors_callback 1")
-        new_license_plates = len(registered_license_plates - known_license_plates)
-        if new_license_plates > 0:
-            _LOGGER.error(f"update_sensors_callback 2 {new_license_plates} - unloading ")
-            hass.add_job(hass.config_entries.async_forward_entry_unload(entry, "sensor"))
-            _LOGGER.error(f"update_sensors_callback 3 - loading ")
-            hass.add_job(hass.config_entries.async_forward_entry_setup(entry, "sensor"))
-            _LOGGER.error(f"update_sensors_callback 4")
-
-        hass.data[DOMAIN][entry.entry_id]["license_plates"] = registered_license_plates
 
     coordinator = DataUpdateCoordinator(
         hass,
@@ -85,9 +67,8 @@ async def async_setup_entry(hass: core.HomeAssistant, entry: config_entries.Conf
         "coordinator": coordinator,
         "dvs_portal": dvs_portal,
     })
-    coordinator.async_add_listener(update_sensors_callback)
 
-    await coordinator.async_config_entry_first_refresh()
+    await coordinator.async_refresh()
 
     await hass.config_entries.async_forward_entry_setups(entry, ["sensor"])
     
