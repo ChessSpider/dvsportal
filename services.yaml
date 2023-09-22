@@ -1,0 +1,30 @@
+# services.yaml
+create_reservation:
+  description: Create a new reservation in DVSPortal
+  fields:
+    entry_id:
+      description: "Choose the DVSPortal registration"
+      selector:
+        config_entry:
+          integration: dvsportal
+          multiple: false
+    license_plate_value:
+      description: "License plate value for the reservation. 🚗"
+      example: "ABC123"
+      selector:
+        text: null
+    license_plate_name:
+      description: "Name associated with the license plate. 📝"
+      example: "My Car"
+      selector:
+        text: null
+    date_from:
+      description: "Start date and time for the reservation. 🗓️"
+      example: "2023-10-10T18:29:00"
+      selector:
+        datetime: null
+    date_until:
+      description: "End date and time for the reservation. ⏰"
+      example: "2023-10-10T20:29:00"
+      selector:
+        datetime: null
