@@ -8,7 +8,7 @@ create_reservation:
         config_entry:
           integration: dvsportal
           multiple: false
-    license_plate_dvs:
+    entity_id:
       description: "Select a known car (DvsCarSensor)."
       selector:
         entity:

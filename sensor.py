@@ -64,7 +64,7 @@ class DVSCarSensor(CoordinatorEntity, Entity):
         return self._attributes
 
     def _reset_attributes(self):
-        self._attributes = {}
+        self._attributes = {"license_plate": self._license_plate}
 
     @property
     def state(self):
