@@ -1,15 +1,23 @@
 # services.yaml
 create_reservation:
-  description: Create a new reservation in DVSPortal
+  description: Create a new reservation in DVSPortal. Either choose a known car (DvsCarSensor) or manually enter a license plate.
   fields:
     entry_id:
-      description: "Choose the DVSPortal registration"
+      description: "Select the DVSPortal registration."
       selector:
         config_entry:
           integration: dvsportal
           multiple: false
+    license_plate_dvs:
+      description: "Select a known car (DvsCarSensor)."
+      selector:
+        entity:
+          integration: dvsportal
+          domain: sensor
+          device_class: dvs_car_sensor
+          multiple: false
     license_plate_value:
-      description: "License plate value for the reservation. 🚗"
+      description: "Or manually enter the license plate value for the reservation. 🚗"
       example: "ABC123"
       selector:
         text: null
@@ -28,3 +36,15 @@ create_reservation:
       example: "2023-10-10T20:29:00"
       selector:
         datetime: null
+
+end_reservation:
+  description: Cancel an active or future reservation in DVSPortal.
+  fields:
+    entity_id:
+      description: "Select the car (DvsCarSensor) whose reservation you want to cancel."
+      selector:
+        entity:
+          integration: dvsportal
+          domain: sensor
+          device_class: dvs_car_sensor_has_reservation
+          multiple: false

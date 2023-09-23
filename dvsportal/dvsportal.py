@@ -151,11 +151,15 @@ class DVSPortal:
         # get the first permit media (assuming there is at least one)
         permit_media = response["Permits"][0]["PermitMedias"][0] if response["Permits"] else {}
 
-        self.balance = permit_media.get("Balance")
+        self.balance = {
+            'balance': permit_media.get("Balance"),
+            'remaining_upgrades': permit_media.get('RemainingUpgrades'),
+            'remaining_downgrades': permit_media.get('RemainingDowngrades')
+        }
         self.unit_price = response["Permits"][0].get("UnitPrice")
         self.active_reservations = {
             reservation["LicensePlate"].get("Value"): {
-                "id": reservation.get("ReservationID"),
+                "reservation_id": reservation.get("ReservationID"),
                 "valid_from": reservation.get("ValidFrom"),
                 "valid_until": reservation.get("ValidUntil"),
                 "license_plate": reservation["LicensePlate"].get("Value"),
@@ -164,13 +168,12 @@ class DVSPortal:
             }
             for reservation in permit_media.get("ActiveReservations", {})
         }
-        self.license_plates = {
-            license_plate.get("Value", ""): license_plate.get("Name")
-            for license_plate in permit_media.get("LicensePlates", [])
-        }
+        
+        history_license_plates = [item["LicensePlate"]["Value"] for item in permit_media.get("History", {}).get("Reservations", {}).get("Items", [])]
+        self.known_license_plates = set(list(self.active_reservations.keys()) + history_license_plates)
 
 
-    async def end_reservation(self, type_id=None, code=None, reservation_id=None):
+    async def end_reservation(self,*, reservation_id, type_id=None, code=None):
         """Ends reservation"""
         if type_id is None:
             type_id = self.default_type_id

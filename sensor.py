@@ -12,33 +12,36 @@ DOMAIN = "dvsportal"
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
     coordinator = hass.data[DOMAIN][config_entry.entry_id]["coordinator"]
-    existing_sensors = hass.data[DOMAIN][config_entry.entry_id]["car_sensors"]
     
     async def async_add_car(new_license_plate):
         """Add new DVSCarSensor."""
         async_add_entities([DVSCarSensor(coordinator, new_license_plate)])
 
     def update_sensors_callback():
-        known_license_plates = set(hass.data[DOMAIN][config_entry.entry_id]["license_plates"])
-        registered_license_plates = set(coordinator.data["license_plates"])
+        # license plates
+        ha_registered_license_plates = set(hass.data[DOMAIN][config_entry.entry_id]["ha_registered_license_plates"])
+        known_license_plates = set(coordinator.data.get("known_license_plates", {}))
 
-        new_license_plates = registered_license_plates - known_license_plates
+        new_license_plates = known_license_plates - ha_registered_license_plates
 
         for new_license_plate in new_license_plates:
             hass.async_create_task(async_add_car(new_license_plate))
 
-        hass.data[DOMAIN][config_entry.entry_id]["license_plates"] = registered_license_plates
+        hass.data[DOMAIN][config_entry.entry_id]["ha_registered_license_plates"] = known_license_plates
 
     async_add_entities([BalanceSensor(coordinator), ActiveReservationsSensor(coordinator)]) # add the default sensors
+
     coordinator.async_add_listener(update_sensors_callback) # make sure new kentekens are registered
     update_sensors_callback() # add the kentekens at the start
         
 
 class DVSCarSensor(CoordinatorEntity, Entity):
+
     def __init__(self, coordinator, license_plate):
-        self._license_plate = license_plate
-        self._attributes = {}
         super().__init__(coordinator)
+
+        self._license_plate = license_plate
+        self._reset_attributes()
 
     @property
     def unique_id(self) -> str:
@@ -46,7 +49,11 @@ class DVSCarSensor(CoordinatorEntity, Entity):
 
     @property
     def icon(self) -> str:
-        return "mdi:car"        
+        return "mdi:car" if self.state == "not present" else "mdi:car-clock"   
+
+    @property
+    def device_class(self):
+        return "dvs_car_sensor" if self.state == "not present" else "dvs_car_sensor_has_reservation"
 
     @property
     def name(self):
@@ -56,15 +63,17 @@ class DVSCarSensor(CoordinatorEntity, Entity):
     def extra_state_attributes(self) -> dict:
         return self._attributes
 
+    def _reset_attributes(self):
+        self._attributes = {}
 
     @property
     def state(self):
         reservation = self.coordinator.data.get("active_reservations", {}).get(self._license_plate)
         if reservation is None:
-            self._attributes = {}
+            self._reset_attributes()
             return "not present"
         
-        self._attributes =  reservation
+        self._attributes.update(reservation)
 
 
         now = datetime.now()
@@ -84,6 +93,7 @@ class BalanceSensor(CoordinatorEntity, SensorEntity):
     def __init__(self, coordinator):
         """Initialize the sensor."""
         super().__init__(coordinator)
+        self._attributes = {}
 
     @property
     def unique_id(self) -> str:
@@ -91,7 +101,7 @@ class BalanceSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def icon(self) -> str:
-        return "mdi:car-clock"
+        return "mdi:clock"
 
     @property
     def name(self) -> str:
@@ -99,7 +109,12 @@ class BalanceSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def state(self) -> int:
-        return self.coordinator.data["balance"]
+        self._attributes = self.coordinator.data["balance"]
+        return self.coordinator.data["balance"]['balance']
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        return self._attributes
 
     @property
     def unit_of_measurement(self) -> str:

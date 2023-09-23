@@ -25,22 +25,21 @@ async def validate_input(hass: core.HomeAssistant, data):
     password = data[CONF_PASSWORD]
     user_agent = data.get("user_agent", "HomeAssistant")
 
+    await self.async_set_unique_id(f"{api_host}.{identifier}")
+    self._abort_if_unique_id_configured()
+
     dvs_portal = DVSPortal(
         api_host=api_host,
         identifier=identifier,
         password=password,
         user_agent=user_agent,
     )
-    logging.error("valiadte_input1")
     try:
         await dvs_portal.token()
-        logging.error("valiadte_input2")
     except DVSPortalAuthError:
-        logging.error("valiadte_input -- error")
         raise InvalidAuth
     finally: 
        await dvs_portal.close()
-    logging.error("valiadte_input  -- succes")
     return {"title": identifier}
 
 class InvalidAuth(exceptions.HomeAssistantError):

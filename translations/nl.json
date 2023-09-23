@@ -1,0 +1,64 @@
+{
+    "config": {
+      "step": {
+        "user": {
+          "title": "Verbind met DVSPortal",
+          "description": "Voer je DVSPortal-inloggegevens in om je parkeerdiensten te integreren.",
+          "data": {
+            "host": "Hostnaam (bijv. parkeren.gemeente.nl)",
+            "username": "Gebruikersnaam",
+            "password": "PIN",
+            "user_agent": "User Agent (optioneel)"
+          }
+        }
+      },
+      "error": {
+        "invalid_auth": "Ongeldige authenticatie",
+        "unknown": "Onbekende fout"
+      },
+      "abort": {
+        "already_configured": "Apparaat is al geconfigureerd"
+      }
+    },
+    "service": {
+      "create_reservation": {
+        "description": "Maak een nieuwe parkeerreservering. Kies ofwel een bekende auto of voer handmatig een kenteken in.",
+        "fields": {
+          "entity_id": {
+            "description": "Kies een bekende auto-sensor entiteit.",
+            "name": "Bekende Auto"
+          },
+          "entry_id": {
+            "description": "Kies de DVSPortal-registratie. Standaard de enige als van toepassing.",
+            "name": "DVSPortal Registratie"
+          },
+          "license_plate_value": {
+            "description": "De waarde van het kenteken voor de reservering.",
+            "name": "Kentekenwaarde"
+          },
+          "license_plate_name": {
+            "description": "De naam die bij het kenteken hoort (optioneel).",
+            "name": "Kentekennaam"
+          },
+          "date_from": {
+            "description": "De startdatum voor de reservering (optioneel).",
+            "name": "Startdatum"
+          },
+          "date_until": {
+            "description": "De einddatum voor de reservering (optioneel).",
+            "name": "Einddatum"
+          }
+        }
+      },
+      "end_reservation": {
+        "description": "Beëindig een actieve of toekomstige parkeerreservering.",
+        "fields": {
+          "entity_id": {
+            "description": "Kies een bekende auto-sensor entiteit om de reservering te beëindigen.",
+            "name": "Bekende Auto"
+          }
+        }
+      }
+    }
+  }
+  
