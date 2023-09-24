@@ -8,5 +8,5 @@
     "integration_type": "service",
     "iot_class": "cloud_polling",
     "requirements": [],
-    "documentation": "https://github.com/chessspider/ha-dvsportal#readme",
+    "documentation": "https://github.com/chessspider/ha-dvsportal#readme"
   }
