@@ -178,8 +178,8 @@ class ActiveReservationsSensor(CoordinatorEntity, SensorEntity):
                     future_licenseplates.append(license_plate)
 
         self._attributes = {
-            "current_licenseplates": active_licenseplates,
-            "future_licenseplates": future_licenseplates,
+            "current_reservations": active_licenseplates,
+            "future_reservationsthe": future_licenseplates,
         }
         return  len(active_licenseplates) + len(future_licenseplates)
 
