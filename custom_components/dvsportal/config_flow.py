@@ -18,15 +18,15 @@ DATA_SCHEMA = vol.Schema(
     }
 )
 
-async def validate_input(hass: core.HomeAssistant, data):
+async def validate_input(hass: core.HomeAssistant, data, config_flow):
     """Validate the user input allows us to connect."""
     api_host = data[CONF_HOST]
     identifier = data[CONF_USERNAME]
     password = data[CONF_PASSWORD]
     user_agent = data.get("user_agent", "HomeAssistant")
 
-    await self.async_set_unique_id(f"{api_host}.{identifier}")
-    self._abort_if_unique_id_configured()
+    await config_flow.async_set_unique_id(f"{api_host}.{identifier}")
+    config_flow._abort_if_unique_id_configured()
 
     dvs_portal = DVSPortal(
         api_host=api_host,
@@ -38,8 +38,8 @@ async def validate_input(hass: core.HomeAssistant, data):
         await dvs_portal.token()
     except DVSPortalAuthError:
         raise InvalidAuth
-    finally: 
-       await dvs_portal.close()
+    finally:
+        await dvs_portal.close()
     return {"title": identifier}
 
 class InvalidAuth(exceptions.HomeAssistantError):
@@ -55,7 +55,7 @@ class DVSPortalConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors = {}
         if user_input is not None:
             try:
-                info = await validate_input(self.hass, user_input)
+                info = await validate_input(self.hass, user_input, self)
                 return self.async_create_entry(title=info["title"], data=user_input)
             except InvalidAuth:
                 errors["base"] = "invalid_auth"
