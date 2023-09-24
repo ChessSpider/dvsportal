@@ -5,9 +5,11 @@ from homeassistant import config_entries, core
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.helpers import config_validation as cv
 from homeassistant.components.persistent_notification import async_create as async_create_notification
+from homeassistant.exceptions import HomeAssistantError
 
 from .dvsportal import DVSPortal, DVSPortalError, DVSPortalAuthError, DVSPortalConnectionError
 from homeassistant.const import CONF_HOST, CONF_USERNAME, CONF_PASSWORD
+import asyncio
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -58,6 +60,7 @@ async def async_setup_entry(hass: core.HomeAssistant, entry: config_entries.Conf
                 "default_type_id": dvs_portal.default_type_id,
                 "balance": dvs_portal.balance,
                 "active_reservations": dvs_portal.active_reservations,
+                "historic_reservations":  dvs_portal.historic_reservations,
                 "known_license_plates": dvs_portal.known_license_plates
             }
         except Exception as e:
@@ -68,7 +71,7 @@ async def async_setup_entry(hass: core.HomeAssistant, entry: config_entries.Conf
         _LOGGER,
         name="dvsportal",
         update_method=async_update_data,
-        update_interval=timedelta(minutes=2),
+        update_interval=timedelta(minutes=5), # refresh is forced for ha servicecalls
     )
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id].update( {
@@ -93,24 +96,30 @@ async def async_setup_entry(hass: core.HomeAssistant, entry: config_entries.Conf
             entity = hass.states.get(entity_id)
             if entity is None:
                 _LOGGER.error(f"Entity {entity_id} not found")
-                return
+                raise HomeAssistantError(f"Entity {entity_id} not found")
             license_plate_value = entity.attributes.get("license_plate")
 
         if entry_id is None:
             _LOGGER.error("No DVSPortal registration selected")
-            return
+            raise HomeAssistantError("No DVSPortal registration selected")
 
         dvs_portal = hass.data[DOMAIN][entry_id]["dvs_portal"]
         
         try:
-            await dvs_portal.create_reservation(
+            tasks = [
+                dvs_portal.create_reservation(
                 license_plate_value=license_plate_value,
                 license_plate_name=license_plate_name,
                 date_from=date_from,
                 date_until=date_until
             )
+            ]
+            if license_plate_name is not None:
+                tasks.append( dvs_portal.store_license_plate(license_plate=license_plate_value, name=license_plate_name) )
+            await asyncio.gather(*tasks)
         except Exception as e:
             _LOGGER.error(f"Failed to create reservation: {e}")
+            raise HomeAssistantError(f"Failed to create reservation: {e}")
         finally:
             await coordinator.async_request_refresh()
 
@@ -127,13 +136,13 @@ async def async_setup_entry(hass: core.HomeAssistant, entry: config_entries.Conf
         
         if entity is None:
             _LOGGER.error(f"Entity {entity_id} not found")
-            return
+            raise HomeAssistantError(f"Entity {entity_id} not found")
 
         reservation_id = entity.attributes.get("reservation_id")
         
         if reservation_id is None:
             _LOGGER.error(f"No reservation_id found in entity {entity_id}")
-            return
+            raise HomeAssistantError(f"No reservation_id found in entity {entity_id}")
 
         dvs_portal = hass.data[DOMAIN][entry.entry_id]["dvs_portal"]
         
@@ -141,6 +150,7 @@ async def async_setup_entry(hass: core.HomeAssistant, entry: config_entries.Conf
             await dvs_portal.end_reservation(reservation_id=reservation_id)
         except Exception as e:
             _LOGGER.error(f"Failed to end reservation: {e}")
+            raise HomeAssistantError(f"Failed to end reservation: {e}")
         finally: 
             await coordinator.async_request_refresh()
 

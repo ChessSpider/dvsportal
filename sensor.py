@@ -20,7 +20,10 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     def update_sensors_callback():
         # license plates
         ha_registered_license_plates = set(hass.data[DOMAIN][config_entry.entry_id]["ha_registered_license_plates"])
-        known_license_plates = set(coordinator.data.get("known_license_plates", {}))
+        known_license_plates =set()
+        if coordinator.data is not None:
+            # sometimes coordinator.data is still None, if upstream api is slow..
+            known_license_plates = set(coordinator.data.get("known_license_plates", {}).keys())
 
         new_license_plates = known_license_plates - ha_registered_license_plates
 
@@ -53,18 +56,23 @@ class DVSCarSensor(CoordinatorEntity, Entity):
 
     @property
     def device_class(self):
-        return "dvs_car_sensor" if self.state == "not present" else "dvs_car_sensor_has_reservation"
+        return "dvs_car_sensor"
 
     @property
     def name(self):
-        return f"Car {self._license_plate}"
+        return f"Car {self._license_plate}" if self._attributes.get('name') is None else f"{self._attributes.get('name')} ({self._license_plate})"
     
     @property
     def extra_state_attributes(self) -> dict:
         return self._attributes
 
     def _reset_attributes(self):
-        self._attributes = {"license_plate": self._license_plate}
+        self._attributes = {
+            "license_plate": self._license_plate, 
+            'name': self.coordinator.data.get("known_license_plates", {}).get(self._license_plate)
+        }
+        history = self.coordinator.data.get("historic_reservations", {}).get(self._license_plate, {})
+        self._attributes.update({f"previous_{k}": v for k, v in history.items()})
 
     @property
     def state(self):
@@ -74,7 +82,6 @@ class DVSCarSensor(CoordinatorEntity, Entity):
             return "not present"
         
         self._attributes.update(reservation)
-
 
         now = datetime.now()
         valid_until = datetime.strptime(reservation.get("valid_until", "1900-01-01T00:00:00"), "%Y-%m-%dT%H:%M:%S")

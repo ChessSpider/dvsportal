@@ -15,6 +15,7 @@ create_reservation:
           integration: dvsportal
           domain: sensor
           device_class: dvs_car_sensor
+          state: 'not present'
           multiple: false
     license_plate_value:
       description: "Or manually enter the license plate value for the reservation. 🚗"
@@ -46,5 +47,7 @@ end_reservation:
         entity:
           integration: dvsportal
           domain: sensor
-          device_class: dvs_car_sensor_has_reservation
+          device_class: dvs_car_sensor
+          attribute:
+            state: ['reserved', 'present']
           multiple: false
