@@ -15,7 +15,7 @@ create_reservation:
           integration: dvsportal
           domain: sensor
           device_class: dvs_car_sensor
-          attributes:
+          attribute:
             state: 'not present'
           multiple: false
     license_plate_value:
