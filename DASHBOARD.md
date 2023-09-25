@@ -16,11 +16,11 @@ This guide will walk you through setting up the DVS Portal Dashboard in Home Ass
 3. Click on it and then click **Install**.
 4. After installation, add the following to your `ui-lovelace.yaml` or through the Lovelace UI:
 
-'''yaml
+```yaml
 resources:
   - url: /hacsfiles/lovelace-auto-entities/auto-entities.js
     type: module
-'''
+```
 
 ## Step 1: Create `input_text` for License Plate
 
@@ -35,7 +35,7 @@ Navigate to **Configuration** > **Helpers** in your Home Assistant dashboard.
 
 Add the following scripts to your `scripts.yaml` file.
 
-'''yaml
+```yaml
 dvsportal_parkingreservation_endofday:
   sequence:
     - service: dvsportal.create_reservation
@@ -56,7 +56,7 @@ create_and_clear_reservation:
         entity_id: input_text.dvsportal_license_plate
       data:
         value: none
-'''
+```
 
 Reload your scripts after adding these.
 
@@ -67,7 +67,7 @@ Reload your scripts after adding these.
 3. Choose **Manual**.
 4. Paste the following YAML code into the editor.
 
-'''yaml
+```yaml
 type: vertical-stack
 title: DVS Portal Dashboard
 cards:
@@ -113,7 +113,7 @@ cards:
     entities:
       - entity: input_text.dvsportal_license_plate
       - entity: script.create_and_clear_reservation
-'''
+```
 
 5. Save the dashboard.
 
