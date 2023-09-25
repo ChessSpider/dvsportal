@@ -19,45 +19,5 @@
     "abort": {
       "already_configured": "Device is already configured"
     }
-  },
-  "service": {
-    "create_reservation": {
-      "description": "Create a new parking reservation. Either choose a known car or manually enter a license plate.",
-      "fields": {
-        "entity_id": {
-          "description": "Choose a known car sensor entity.",
-          "name": "Known Car"
-        },
-        "entry_id": {
-          "description": "Choose the DVSPortal registration. Defaults to the only one if applicable.",
-          "name": "DVSPortal Registration"
-        },
-        "license_plate_value": {
-          "description": "The value of the license plate for the reservation.",
-          "name": "License Plate Value"
-        },
-        "license_plate_name": {
-          "description": "The name associated with the license plate (optional).",
-          "name": "License Plate Name"
-        },
-        "date_from": {
-          "description": "The start date for the reservation (optional).",
-          "name": "Start Date"
-        },
-        "date_until": {
-          "description": "The end date for the reservation (optional).",
-          "name": "End Date"
-        }
-      }
-    },
-    "end_reservation": {
-      "description": "End an active or future parking reservation.",
-      "fields": {
-        "entity_id": {
-          "description": "Choose a known car sensor entity to end its reservation.",
-          "name": "Known Car"
-        }
-      }
-    }
   }
 }
