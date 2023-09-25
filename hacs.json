@@ -1,7 +1,5 @@
 {
-  "name": "DVS Portal",
-  "domains": ["sensor"],
-  "issue_tracker": "https://github.com/chessspider/dvsportal/issues",
+  "name": "DVS Portal", 
   "render_readme": true,
   "content_in_root": true
 }
