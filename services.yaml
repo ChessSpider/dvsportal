@@ -10,14 +10,14 @@ create_reservation:
           multiple: false
     entity_id:
       description: "Select a known car (DvsCarSensor)."
+      filter: 
+        attribute:
+          state: 'not present'
       selector:
         entity:
           integration: dvsportal
           domain: sensor
           device_class: dvs_car_sensor
-          filter: 
-            attribute:
-              state: 'not present'
           multiple: false
     license_plate_value:
       description: "Or manually enter the license plate value for the reservation. 🚗"
@@ -45,12 +45,12 @@ end_reservation:
   fields:
     entity_id:
       description: "Select the car (DvsCarSensor) whose reservation you want to cancel."
+      filter: 
+        attribute:
+          state: ['reserved', 'present']
       selector:
         entity:
           integration: dvsportal
           domain: sensor
           device_class: dvs_car_sensor
-          filter: 
-            attribute:
-              state: ['reserved', 'present']
           multiple: false
