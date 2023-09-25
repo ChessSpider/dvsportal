@@ -1,7 +1,7 @@
 {
   "name": "DVS Portal",
   "domains": ["sensor"],
-  "documentation": "https://github.com/chessspider/ha-dvsportal/README.md",
+  "documentation": "https://raw.githubusercontent.com/ChessSpider/ha-dvsportal/main/README.md",
   "issue_tracker": "https://github.com/chessspider/dvsportal/issues",
   "render_readme": true
 }
