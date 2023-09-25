@@ -1,8 +1,11 @@
 # DVS Portal Integration for Home Assistant
 
-This integration is designed for the parking system commonly used by Dutch municipalities. It provides various sensors and functionalities to interact with the parking system directly from your Home Assistant instance.
+This integration is designed for the parking system used by some Dutch municipalities. It provides various sensors and functionalities to interact with the parking system directly from your Home Assistant instance.
+
+If your parking system has "DVSPortal" in the url, you can use this integration. [For examples, click here](https://www.google.com/search?q=inurl%3Advsportal)
 
 ![Example HACS dashboard](./example-dashboard.png)
+
 [Read here how](DASHBOARD.md)
 
 ## Features
