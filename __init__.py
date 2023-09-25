@@ -3,6 +3,7 @@ import logging
 import voluptuous as vol
 from homeassistant import config_entries, core
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers import config_validation as cv
 from homeassistant.components.persistent_notification import async_create as async_create_notification
 from homeassistant.exceptions import HomeAssistantError
@@ -160,5 +161,25 @@ async def async_setup_entry(hass: core.HomeAssistant, entry: config_entries.Conf
         end_reservation_service,
         schema=END_RESERVATION_SCHEMA
     )
+
+    async def async_unload_entry(entry: config_entries.ConfigEntry):
+        """Unload a config entry."""
+        unload_ok = await hass.config_entries.async_forward_entry_unload(entry, "sensor")
+        if unload_ok:
+            hass.data[DOMAIN].pop(entry.entry_id)
+
+        return unload_ok
+
+    entry.async_on_unload(
+        async_dispatcher_connect(
+            hass, f"{DOMAIN}_{entry.entry_id}_unload", async_unload_entry
+        )
+    )
+    
+    async def async_update_options(entry: config_entries.ConfigEntry):
+        """Update options."""
+        await hass.config_entries.async_reload(entry.entry_id)
+
+    entry.add_update_listener(async_update_options)
 
     return True
