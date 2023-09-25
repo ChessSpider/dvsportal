@@ -2,6 +2,9 @@
 
 This integration is designed for the parking system commonly used by Dutch municipalities. It provides various sensors and functionalities to interact with the parking system directly from your Home Assistant instance.
 
+![Example HACS dashboard](./example-dashboard.png)
+[Read here how](DASHBOARD.md)
+
 ## Features
 
 - **Balance Sensor**: Shows the remaining balance for guest parking.
