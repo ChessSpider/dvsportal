@@ -85,7 +85,7 @@ class DVSCarSensor(CoordinatorEntity, Entity):
 
         now = datetime.now()
         valid_until = datetime.strptime(reservation.get("valid_until", "1900-01-01T00:00:00"), "%Y-%m-%dT%H:%M:%S")
-        valid_from = datetime.strptime(reservation.get("valid_from", "1900-01-01T00:00:00"), "%Y-%m-%dT%H:%M:%S")
+        valid_from = datetime.strptime(str(reservation.get("valid_from", "1900-01-01T00:00:00")).split('.')[0], "%Y-%m-%dT%H:%M:%S")
         
         if valid_until > now and valid_from <= now:
             return "present"
@@ -167,8 +167,8 @@ class ActiveReservationsSensor(CoordinatorEntity, SensorEntity):
         future_licenseplates = []
 
         for reservation in active_reservations:
-            valid_until = datetime.strptime(reservation.get("valid_until", "1900-01-01T00:00:00"), "%Y-%m-%dT%H:%M:%S")
-            valid_from = datetime.strptime(reservation.get("valid_from", "1900-01-01T00:00:00"), "%Y-%m-%dT%H:%M:%S")
+            valid_until = datetime.strptime(str(reservation.get("valid_until", "1900-01-01T00:00:00")).split('.')[0], "%Y-%m-%dT%H:%M:%S")
+            valid_from = datetime.strptime(str(reservation.get("valid_from", "1900-01-01T00:00:00")).split('.')[0], "%Y-%m-%dT%H:%M:%S")
             license_plate = reservation.get("license_plate")
 
             if license_plate:
