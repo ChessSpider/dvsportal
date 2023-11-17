@@ -84,7 +84,7 @@ class DVSCarSensor(CoordinatorEntity, Entity):
         self._attributes.update(reservation)
 
         now = datetime.now()
-        valid_until = datetime.strptime(reservation.get("valid_until", "1900-01-01T00:00:00"), "%Y-%m-%dT%H:%M:%S")
+        valid_until = datetime.strptime(str(reservation.get("valid_until", "1900-01-01T00:00:00")).split('.')[0], "%Y-%m-%dT%H:%M:%S")
         valid_from = datetime.strptime(str(reservation.get("valid_from", "1900-01-01T00:00:00")).split('.')[0], "%Y-%m-%dT%H:%M:%S")
         
         if valid_until > now and valid_from <= now:
