@@ -11,7 +11,6 @@ create_reservation:
     entity_id:
       selector:
         entity:
-          multiple: false
           filter:
             - integration: dvsportal
               domain: sensor
