@@ -7,7 +7,6 @@ create_reservation:
       selector:
         config_entry:
           integration: dvsportal
-          multiple: false
     entity_id:
       selector:
         entity:
