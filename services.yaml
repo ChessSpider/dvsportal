@@ -12,7 +12,7 @@ create_reservation:
       description: "Select a known car (DvsCarSensor)."
       filter: 
         attribute:
-          state: 'not present'
+          state: ['not present']
       selector:
         entity:
           integration: dvsportal
@@ -47,9 +47,7 @@ end_reservation:
       description: "Select the car (DvsCarSensor) whose reservation you want to cancel."
       filter: 
         attribute:
-          state: 
-            - "reserved"
-            - "present"
+          state: ["reserved", "present"]
       selector:
         entity:
           integration: dvsportal
