@@ -1,13 +1,17 @@
 # services.yaml
 create_reservation:
-  description: Create a new reservation in DVSPortal. Either choose a known car (DvsCarSensor) or manually enter a license plate.
+  name: "Create Reservation"
+  description: "Create a new reservation in DVSPortal. Either choose a known car (DvsCarSensor) or manually enter a license plate."
   fields:
     entry_id:
+      name: "DVSPortal Registration"
       description: "Select the DVSPortal registration."
       selector:
         config_entry:
           integration: dvsportal
     entity_id:
+      name: "Known Car"
+      description: "Select a known car (DvsCarSensor)."
       selector:
         entity:
           filter:
@@ -15,35 +19,41 @@ create_reservation:
               domain: sensor
               device_class: dvs_car_sensor
     license_plate_value:
-      description: "Or manually enter the license plate value for the reservation. 🚗"
+      name: "Manual License Plate"
+      description: "Manually enter the license plate value for the reservation."
       example: "ABC123"
       selector:
         text: null
     license_plate_name:
-      description: "Name associated with the license plate. 📝"
+      name: "License Plate Name"
+      description: "Name associated with the license plate."
       example: "My Car"
       selector:
         text: null
     date_from:
-      description: "Start date and time for the reservation. 🗓️"
+      name: "Reservation Start"
+      description: "Start date and time for the reservation."
       example: "2023-10-10T18:29:00"
       selector:
         datetime: null
     date_until:
-      description: "End date and time for the reservation. ⏰"
+      name: "Reservation End"
+      description: "End date and time for the reservation."
       example: "2023-10-10T20:29:00"
       selector:
         datetime: null
 
 end_reservation:
-  description: Cancel an active or future reservation in DVSPortal.
+  name: "End Reservation"
+  description: "Cancel an active or future reservation in DVSPortal."
   fields:
     entity_id:
+      name: "Car for Cancellation"
       description: "Select the car (DvsCarSensor) whose reservation you want to cancel."
       selector:
         entity:
           filter:
-          -  integration: dvsportal
-             domain: sensor
-             device_class: dvs_car_sensor
+            - integration: dvsportal
+              domain: sensor
+              device_class: dvs_car_sensor
           multiple: false
