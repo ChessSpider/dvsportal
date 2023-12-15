@@ -38,7 +38,7 @@ create_reservation:
         datetime: null
     date_until:
       name: "Reservation End"
-      description: "End date and time for the reservation."
+      description: "End date and time for the reservation. (defaults to end-of-day)"
       example: "2023-10-10T20:29:00"
       selector:
         datetime: null
