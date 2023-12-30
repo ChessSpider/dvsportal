@@ -199,8 +199,9 @@ class DVSPortal:
         }
         
         history_license_plates = {
-            item["LicensePlate"]["Value"]: None
+            item["LicensePlate"]["DisplayValue"]: None
             for item in permit_media.get("History", {}).get("Reservations", {}).get("Items", [])
+            if item["LicensePlate"]["DisplayValue"] != '********' # ignore forgotten license
         }
 
         # Extract license plates from active reservations
@@ -221,7 +222,9 @@ class DVSPortal:
 
         recent_reservations = {}
         for item in permit_media.get("History", {}).get("Reservations", {}).get("Items", []):
-            license_plate = item["LicensePlate"]["Value"]
+            license_plate = item["LicensePlate"]["DisplayValue"]
+            if license_plate == '*********':
+                continue 
             valid_until = item["ValidUntil"]
             if license_plate not in recent_reservations:
                 recent_reservations[license_plate] = {
