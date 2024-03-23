@@ -7,7 +7,7 @@
   "dependencies": [],
   "integration_type": "service",
   "iot_class": "cloud_polling",
-  "requirements": ["dvsportal==1.1.0"],
+  "requirements": ["dvsportal==1.2.0"],
   "documentation": "https://github.com/chessspider/dvsportal#readme",
   "issue_tracker": "https://github.com/ChessSpider/dvsportal/issues"
 }
