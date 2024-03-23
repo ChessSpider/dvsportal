@@ -3,7 +3,7 @@ from homeassistant.const import CONF_PASSWORD, CONF_USERNAME, CONF_HOST
 from homeassistant.helpers import aiohttp_client
 import voluptuous as vol
 
-from .dvsportal import DVSPortal, DVSPortalAuthError
+from dvsportal import DVSPortal, DVSPortalAuthError
 import logging
 _LOGGER = logging.getLogger(__name__)
 

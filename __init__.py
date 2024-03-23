@@ -8,7 +8,7 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.components.persistent_notification import async_create as async_create_notification
 from homeassistant.exceptions import HomeAssistantError
 
-from .dvsportal import DVSPortal, DVSPortalError, DVSPortalAuthError, DVSPortalConnectionError
+from dvsportal import DVSPortal, DVSPortalError, DVSPortalAuthError, DVSPortalConnectionError
 from homeassistant.const import CONF_HOST, CONF_USERNAME, CONF_PASSWORD
 import asyncio
 
