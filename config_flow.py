@@ -60,7 +60,7 @@ class DVSPortalConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             except InvalidAuth:
                 errors["base"] = "invalid_auth"
             except Exception as ex:  # pylint: disable=broad-except
-                logging.error(f"async step user {ex}")
+                logging.exception("Error in async step user")
                 errors["base"] = "unknown"
 
         return self.async_show_form(
