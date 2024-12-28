@@ -4,7 +4,7 @@ from datetime import datetime
 from homeassistant.core import callback
 
 from homeassistant.components.sensor import SensorEntity, SensorDeviceClass
-from homeassistant.const import TIME_MINUTES
+from homeassistant.const import UnitOfTime
 import logging
 _LOGGER = logging.getLogger(__name__)
 
@@ -125,7 +125,7 @@ class BalanceSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def unit_of_measurement(self) -> str:
-        return TIME_MINUTES
+        return UnitOfTime.MINUTES
 
     @property
     def state_class(self) -> str:
