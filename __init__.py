@@ -1,45 +1,67 @@
-from datetime import timedelta
-import logging
-import voluptuous as vol
-from homeassistant import config_entries, core
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
-from homeassistant.helpers.dispatcher import async_dispatcher_connect
-from homeassistant.helpers import config_validation as cv
-from homeassistant.components.persistent_notification import async_create as async_create_notification
-from homeassistant.exceptions import HomeAssistantError
+"""Home Assistant DVS Portal Integration.
 
-from dvsportal import DVSPortal, DVSPortalError, DVSPortalAuthError, DVSPortalConnectionError
-from homeassistant.const import CONF_HOST, CONF_USERNAME, CONF_PASSWORD
-import asyncio
+This integration allows Home Assistant to interact with the DVS Portal API,
+retrieving data such as parking balance, and managing car reservations.
+"""
+
+from dataclasses import dataclass
+import logging
+
+from dvsportal import DVSPortal, exceptions as dvs_exceptions
+
+from homeassistant import exceptions
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
+
+from .const import DOMAIN
+from .coordinator import DVSPortalCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
-DOMAIN = "dvsportal"
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
-SERVICE_CREATE_RESERVATION = "create_reservation"
 
-CREATE_RESERVATION_SCHEMA = vol.Schema({
-    vol.Optional("entity_id"): cv.entity_id,
-    vol.Optional("entry_id"): cv.string,
-    vol.Optional("license_plate_value"): cv.string,
-    vol.Optional("license_plate_name"): cv.string,
-    vol.Optional("date_from"): cv.datetime,
-    vol.Optional("date_until"): cv.datetime,
-})
+@dataclass
+class DVSPortalRuntimeData:
+    """Data class for runtime data of DVSPortal."""
 
-SERVICE_END_RESERVATION = "end_reservation"
+    coordinator: DVSPortalCoordinator
+    ha_registered_license_plates: set[
+        str
+    ]  # Store all license places which have already have a DVSCarPortal instance
 
-END_RESERVATION_SCHEMA = vol.Schema({
-    vol.Required("entity_id"): cv.entity_id,
-})
 
-async def async_setup_entry(hass: core.HomeAssistant, entry: config_entries.ConfigEntry):
+type DVSPortalConfigEntry = ConfigEntry[DVSPortalRuntimeData]
+
+
+async def async_setup_entry(hass: HomeAssistant, entry: DVSPortalConfigEntry) -> bool:
     """Set up the dvsportal component from a config entry."""
-    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {
-        "coordinator": None,
-        "dvs_portal": None,
-        'ha_registered_license_plates': set(), # license plates registered
-    }
+
+    async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+        """Unload a config entry."""
+        runtime_data: DVSPortalRuntimeData = entry.runtime_data
+
+        # Ensure dvs_portal.close() is called to clean up the session
+        if dvs_portal := runtime_data.coordinator.dvs_portal:
+            try:
+                await dvs_portal.close()
+            except Exception as ex:  # noqa: BLE001
+                _LOGGER.warning("Failed to close DVSPortal session: %s", ex)
+
+        unload_ok = await hass.config_entries.async_forward_entry_unload(
+            entry, "sensor"
+        )
+        if unload_ok:
+            hass.data[DOMAIN].pop(entry.entry_id)
+
+        return unload_ok
+
+    async def async_update_options(hass: HomeAssistant, entry: ConfigEntry):
+        """Update options."""
+        await hass.config_entries.async_reload(entry.entry_id)
 
     api_host = entry.data[CONF_HOST]
     identifier = entry.data[CONF_USERNAME]
@@ -53,132 +75,31 @@ async def async_setup_entry(hass: core.HomeAssistant, entry: config_entries.Conf
         user_agent=user_agent,
     )
 
-    async def async_update_data():
-        try:
-            await dvs_portal.update()
-            return {
-                "default_code": dvs_portal.default_code,
-                "default_type_id": dvs_portal.default_type_id,
-                "balance": dvs_portal.balance,
-                "active_reservations": dvs_portal.active_reservations,
-                "historic_reservations":  dvs_portal.historic_reservations,
-                "known_license_plates": dvs_portal.known_license_plates
-            }
-        except Exception as e:
-            raise UpdateFailed(f"Error communicating with API: {e}")
+    try:
+        # Verify login still works
+        await dvs_portal.token()
 
-    coordinator = DataUpdateCoordinator(
-        hass,
-        _LOGGER,
-        name="dvsportal",
-        update_method=async_update_data,
-        update_interval=timedelta(minutes=5), # refresh is forced for ha servicecalls
+    except dvs_exceptions.DVSPortalError as ex:
+        await dvs_portal.close()
+        raise exceptions.ConfigEntryNotReady("Failed to initialize DVSPortal") from ex
+
+    # Setup and init stuff
+    coordinator = DVSPortalCoordinator(hass, dvs_portal)
+
+    entry.runtime_data = DVSPortalRuntimeData(
+        coordinator=coordinator,
+        ha_registered_license_plates=set(),
     )
-
-    hass.data.setdefault(DOMAIN, {})[entry.entry_id].update( {
-        "coordinator": coordinator,
-        "dvs_portal": dvs_portal,
-    })
-
-    await coordinator.async_refresh()
-
     await hass.config_entries.async_forward_entry_setups(entry, ["sensor"])
-    
 
-    async def create_reservation_service(call):
-        entity_id = call.data.get("entity_id")
-        entry_id = call.data.get("entry_id", list(hass.data[DOMAIN].keys())[0] if len(hass.data[DOMAIN]) == 1 else None)
-        license_plate_value = call.data.get("license_plate_value")
-        license_plate_name = call.data.get("license_plate_name")
-        date_from = call.data.get("date_from")
-        date_until = call.data.get("date_until")
-        
-        if entity_id:
-            entity = hass.states.get(entity_id)
-            if entity is None:
-                _LOGGER.error(f"Entity {entity_id} not found")
-                raise HomeAssistantError(f"Entity {entity_id} not found")
-            license_plate_value = entity.attributes.get("license_plate")
-
-        if entry_id is None:
-            _LOGGER.error("No DVSPortal registration selected")
-            raise HomeAssistantError("No DVSPortal registration selected")
-
-        dvs_portal = hass.data[DOMAIN][entry_id]["dvs_portal"]
-        
-        try:
-            tasks = [
-                dvs_portal.create_reservation(
-                license_plate_value=license_plate_value,
-                license_plate_name=license_plate_name,
-                date_from=date_from,
-                date_until=date_until
-            )
-            ]
-            if license_plate_name is not None:
-                tasks.append( dvs_portal.store_license_plate(license_plate=license_plate_value, name=license_plate_name) )
-            await asyncio.gather(*tasks)
-        except Exception as e:
-            _LOGGER.error(f"Failed to create reservation: {e}")
-            raise HomeAssistantError(f"Failed to create reservation: {e}")
-        finally:
-            await coordinator.async_request_refresh()
-
-    hass.services.async_register(
-        DOMAIN,
-        SERVICE_CREATE_RESERVATION,
-        create_reservation_service,
-        schema=CREATE_RESERVATION_SCHEMA
-    )
-
-    async def end_reservation_service(call):
-        entity_id = call.data.get("entity_id")
-        entity = hass.states.get(entity_id)
-        
-        if entity is None:
-            _LOGGER.error(f"Entity {entity_id} not found")
-            raise HomeAssistantError(f"Entity {entity_id} not found")
-
-        reservation_id = entity.attributes.get("reservation_id")
-        
-        if reservation_id is None:
-            _LOGGER.error(f"No reservation_id found in entity {entity_id}")
-            raise HomeAssistantError(f"No reservation_id found in entity {entity_id}")
-
-        dvs_portal = hass.data[DOMAIN][entry.entry_id]["dvs_portal"]
-        
-        try:
-            await dvs_portal.end_reservation(reservation_id=reservation_id)
-        except Exception as e:
-            _LOGGER.error(f"Failed to end reservation: {e}")
-            raise HomeAssistantError(f"Failed to end reservation: {e}")
-        finally: 
-            await coordinator.async_request_refresh()
-
-    hass.services.async_register(
-        DOMAIN,
-        SERVICE_END_RESERVATION,
-        end_reservation_service,
-        schema=END_RESERVATION_SCHEMA
-    )
-
-    async def async_unload_entry(entry: config_entries.ConfigEntry):
-        """Unload a config entry."""
-        unload_ok = await hass.config_entries.async_forward_entry_unload(entry, "sensor")
-        if unload_ok:
-            hass.data[DOMAIN].pop(entry.entry_id)
-
-        return unload_ok
+    # Check if the first refresh is successful
+    await coordinator.async_config_entry_first_refresh()
 
     entry.async_on_unload(
         async_dispatcher_connect(
             hass, f"{DOMAIN}_{entry.entry_id}_unload", async_unload_entry
         )
     )
-    
-    async def async_update_options(entry: config_entries.ConfigEntry):
-        """Update options."""
-        await hass.config_entries.async_reload(entry.entry_id)
 
     entry.add_update_listener(async_update_options)
 

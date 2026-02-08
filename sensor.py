@@ -1,165 +1,132 @@
-from homeassistant.helpers.entity import Entity
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
-from datetime import datetime
-from homeassistant.core import callback
+"""Setup balance and reservation sensors."""
 
-from homeassistant.components.sensor import SensorEntity, SensorDeviceClass
-from homeassistant.const import UnitOfTime
+from datetime import datetime
 import logging
+
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
+from homeassistant.const import UnitOfTime
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
+
+from . import DVSPortalConfigEntry
+from .coordinator import DVSPortalCoordinator
+from .entity import DVSCarSensor
+
 _LOGGER = logging.getLogger(__name__)
 
-DOMAIN = "dvsportal"
 
-async def async_setup_entry(hass, config_entry, async_add_entities):
-    coordinator = hass.data[DOMAIN][config_entry.entry_id]["coordinator"]
-    
-    async def async_add_car(new_license_plate):
+async def async_setup_entry(
+    hass: HomeAssistant,
+    config_entry: DVSPortalConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up dvsportal sensors."""
+
+    runtime_data = config_entry.runtime_data
+    coordinator = runtime_data.coordinator
+
+    async def async_add_car(new_license_plate: str):
         """Add new DVSCarSensor."""
-        async_add_entities([DVSCarSensor(coordinator, new_license_plate)])
+        async_add_entities([DVSCarSensor(config_entry, new_license_plate)])
 
     def update_sensors_callback():
         # license plates
-        ha_registered_license_plates = set(hass.data[DOMAIN][config_entry.entry_id]["ha_registered_license_plates"])
-        known_license_plates =set()
+
+        ha_registered_license_plates: set[str] = (
+            runtime_data.ha_registered_license_plates
+        )
+
+        known_license_plates: set[str] = set()
         if coordinator.data is not None:
             # sometimes coordinator.data is still None, if upstream api is slow..
-            known_license_plates = set(coordinator.data.get("known_license_plates", {}).keys())
+            known_license_plates: set[str] = set(
+                coordinator.data.known_license_plates.keys()
+            )
 
         new_license_plates = known_license_plates - ha_registered_license_plates
 
         for new_license_plate in new_license_plates:
             hass.async_create_task(async_add_car(new_license_plate))
 
-        hass.data[DOMAIN][config_entry.entry_id]["ha_registered_license_plates"] = known_license_plates
+        runtime_data.ha_registered_license_plates = known_license_plates
 
-    async_add_entities([BalanceSensor(coordinator), ActiveReservationsSensor(coordinator)]) # add the default sensors
+    coordinator.async_add_listener(
+        update_sensors_callback
+    )  # make sure new kentekens are registered
 
-    coordinator.async_add_listener(update_sensors_callback) # make sure new kentekens are registered
-    update_sensors_callback() # add the kentekens at the start
-        
-
-class DVSCarSensor(CoordinatorEntity, Entity):
-
-    def __init__(self, coordinator, license_plate):
-        super().__init__(coordinator)
-
-        self._license_plate = license_plate
-        self._reset_attributes()
-
-    @property
-    def unique_id(self) -> str:
-        return f"dvsportal_carsensor_{self._license_plate}"
-
-    @property
-    def icon(self) -> str:
-        return "mdi:car" if self.state == "not present" else "mdi:car-clock"   
-
-    @property
-    def device_class(self):
-        return "dvs_car_sensor"
-
-    @property
-    def name(self):
-        return f"Car {self._license_plate}" if self._attributes.get('name') is None else f"{self._attributes.get('name')} ({self._license_plate})"
-    
-    @property
-    def extra_state_attributes(self) -> dict:
-        return self._attributes
-
-    def _reset_attributes(self):
-        self._attributes = {
-            "license_plate": self._license_plate, 
-            'name': self.coordinator.data.get("known_license_plates", {}).get(self._license_plate)
-        }
-        history = self.coordinator.data.get("historic_reservations", {}).get(self._license_plate, {})
-        self._attributes.update({f"previous_{k}": v for k, v in history.items()})
-
-    @property
-    def state(self):
-        reservation = self.coordinator.data.get("active_reservations", {}).get(self._license_plate)
-        if reservation is None:
-            self._reset_attributes()
-            return "not present"
-        
-        self._attributes.update(reservation)
-
-        now = datetime.now()
-        valid_until = datetime.strptime(str(reservation.get("valid_until", "1900-01-01T00:00:00")).split('.')[0], "%Y-%m-%dT%H:%M:%S")
-        valid_from = datetime.strptime(str(reservation.get("valid_from", "1900-01-01T00:00:00")).split('.')[0], "%Y-%m-%dT%H:%M:%S")
-        
-        if valid_until > now and valid_from <= now:
-            return "present"
-        else:
-            return "reserved"
-        return "unknown"
+    async_add_entities(
+        [BalanceSensor(config_entry), ActiveReservationsSensor(config_entry)]
+    )
+    update_sensors_callback()  # add the kentekens at the start
 
 
-class BalanceSensor(CoordinatorEntity, SensorEntity):
+class BalanceSensor(CoordinatorEntity[DVSPortalCoordinator], SensorEntity):
     """Representation of a Balance Sensor."""
 
-    def __init__(self, coordinator):
-        """Initialize the sensor."""
-        super().__init__(coordinator)
-        self._attributes = {}
+    _attr_has_entity_name = True
 
-    @property
-    def unique_id(self) -> str:
-        return "dvsportal_balance_unique_id"
+    def __init__(self, config_entry: DVSPortalConfigEntry) -> None:
+        """Initialize the sensor."""
+        super().__init__(config_entry.runtime_data.coordinator)
+        self._attr_unique_id = f"dvsportal_{config_entry.entry_id}_balance"
 
     @property
     def icon(self) -> str:
+        """An icon."""
         return "mdi:clock"
 
     @property
     def name(self) -> str:
+        """Balance remaining."""
         return "Guest Parking Balance"
 
-    @property
-    def state(self) -> int:
-        self._attributes = self.coordinator.data["balance"]
-        return self.coordinator.data["balance"]['balance']
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Handle updated data from the coordinator."""
+
+        self._attr_native_value = self.coordinator.data.balance
+        self.async_write_ha_state()
 
     @property
-    def extra_state_attributes(self) -> dict:
-        return self._attributes
-
-    @property
-    def unit_of_measurement(self) -> str:
+    def native_unit_of_measurement(self) -> str:
+        """Balance remaining in minutes."""
         return UnitOfTime.MINUTES
 
     @property
     def state_class(self) -> str:
+        """Balance remaining total."""
         return "total"
 
     @property
-    def device_class(self) -> str:
+    def device_class(self) -> SensorDeviceClass:
+        """Duration."""
         return SensorDeviceClass.DURATION
 
 
-
-class ActiveReservationsSensor(CoordinatorEntity, SensorEntity):
+class ActiveReservationsSensor(CoordinatorEntity[DVSPortalCoordinator], SensorEntity):
     """Representation of an Active Reservations Sensor."""
 
-    def __init__(self, coordinator):
-        """Initialize the sensor."""
-        super().__init__(coordinator)
-        self._attributes = {}
+    _attr_has_entity_name = True
 
-    @property
-    def unique_id(self) -> str:
-        return "dvsportal_active_reservations_unique_id"
+    def __init__(self, config_entry: DVSPortalConfigEntry) -> None:
+        """Initialize the sensor."""
+        super().__init__(config_entry.runtime_data.coordinator)
+        self._attr_unique_id = f"dvsportal_{config_entry.entry_id}_active_reservations"
 
     @property
     def icon(self) -> str:
+        """Multiple cars."""
         return "mdi:car-multiple"
 
     @property
     def name(self) -> str:
+        """Amount of current active reservations."""
         return "Reservations"
 
-    @property
-    def state(self) -> int:
-        active_reservations = [v for k, v in self.coordinator.data.get("active_reservations", {}).items()]
+    def _set_state(self) -> None:
+        """Calculate count of current and future reservations."""
+        active_reservations = list(self.coordinator.data.active_reservations.values())
 
         now = datetime.now()
 
@@ -167,30 +134,44 @@ class ActiveReservationsSensor(CoordinatorEntity, SensorEntity):
         future_licenseplates = []
 
         for reservation in active_reservations:
-            valid_until = datetime.strptime(str(reservation.get("valid_until", "1900-01-01T00:00:00")).split('.')[0], "%Y-%m-%dT%H:%M:%S")
-            valid_from = datetime.strptime(str(reservation.get("valid_from", "1900-01-01T00:00:00")).split('.')[0], "%Y-%m-%dT%H:%M:%S")
+            valid_until = datetime.strptime(
+                str(reservation.get("valid_until", "1900-01-01T00:00:00")).split(
+                    ".", maxsplit=1
+                )[0],
+                "%Y-%m-%dT%H:%M:%S",
+            )
+            valid_from = datetime.strptime(
+                str(reservation.get("valid_from", "1900-01-01T00:00:00")).split(
+                    ".", maxsplit=1
+                )[0],
+                "%Y-%m-%dT%H:%M:%S",
+            )
             license_plate = reservation.get("license_plate")
 
             if license_plate:
-                if valid_until > now and valid_from <= now:
+                if valid_from <= now < valid_until:
                     active_licenseplates.append(license_plate)
                 else:
                     future_licenseplates.append(license_plate)
 
-        self._attributes = {
+        self._attr_extra_state_attributes = {
             "current_reservations": active_licenseplates,
             "future_reservationsthe": future_licenseplates,
         }
-        return  len(active_licenseplates) + len(future_licenseplates)
+        self._attr_native_value = len(active_licenseplates) + len(future_licenseplates)
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Handle updated data from the coordinator."""
+        self._set_state()
+        self.async_write_ha_state()
 
     @property
-    def unit_of_measurement(self) -> str:
+    def native_unit_of_measurement(self) -> str:
+        """Amount of reservations."""
         return "reservations"
 
     @property
     def state_class(self) -> str:
+        """Total."""
         return "total"
-
-    @property
-    def extra_state_attributes(self) -> dict:
-        return self._attributes
