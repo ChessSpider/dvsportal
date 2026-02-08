@@ -156,7 +156,7 @@ class ActiveReservationsSensor(CoordinatorEntity[DVSPortalCoordinator], SensorEn
 
         self._attr_extra_state_attributes = {
             "current_reservations": active_licenseplates,
-            "future_reservationsthe": future_licenseplates,
+            "future_reservations": future_licenseplates,
         }
         self._attr_native_value = len(active_licenseplates) + len(future_licenseplates)
 
