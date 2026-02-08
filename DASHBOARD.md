@@ -1,20 +1,34 @@
 # DVS Portal Dashboard Setup Guide
 
-This guide will walk you through setting up the DVS Portal Dashboard in Home Assistant. The dashboard provides an overview of your parking reservations, balance, and other related information.
+This guide will walk you through setting up the DVS Portal Dashboard in Home Assistant. The dashboard provides an overview of your parking reservations, balance, and related information.
 
 ![Example HACS dashboard](./example-dashboard.png)
 
 ## Prerequisites
 
-- Make sure you have installed the DVS Portal integration.
-- Make sure you have HACS installed.
+- The DVS Portal integration is installed
+- HACS is installed
+
+---
+
+## ⚠️ Upgrade note
+
+If you are **upgrading from an older version** of this integration:
+
+- Car sensors no longer use a custom `device_class`
+- Auto-Entities filters must be updated to match on the attribute:
+  - `dvs_entity: car`
+
+See **Step 3** for the updated filters.
+
+---
 
 ## Step 0: Install `auto-entities` Card through HACS
 
-1. Navigate to **HACS** > **Frontend** in your Home Assistant dashboard.
-2. Search for `auto-entities` in the search bar.
-3. Click on it and then click **Install**.
-4. After installation, add the following to your `ui-lovelace.yaml` or through the Lovelace UI:
+1. Navigate to **HACS** → **Frontend**
+2. Search for `auto-entities`
+3. Install it
+4. Add the resource:
 
 ```yaml
 resources:
@@ -22,18 +36,22 @@ resources:
     type: module
 ```
 
+---
+
 ## Step 1: Create `input_text` for License Plate
 
-Navigate to **Configuration** > **Helpers** in your Home Assistant dashboard.
+Navigate to **Settings** → **Helpers**
 
-1. Click the **ADD HELPER** button.
-2. Choose **Text**.
-3. Give it a name, for example, "DVS License Plate".
-4. Set the Entity ID to `input_text.dvsportal_license_plate`.
+1. Click **ADD HELPER**
+2. Choose **Text**
+3. Name it e.g. `DVS License Plate`
+4. Set entity ID to `input_text.dvsportal_license_plate`
+
+---
 
 ## Step 2: Add Scripts
 
-Add the following scripts to your `scripts.yaml` file.
+Add the following to `scripts.yaml`:
 
 ```yaml
 dvsportal_parkingreservation_endofday:
@@ -44,6 +62,7 @@ dvsportal_parkingreservation_endofday:
         license_plate_value: "{{ license_plate_value }}"
         date_from: "{{ (now() + timedelta(minutes=1)).isoformat() }}"
         date_until: "{{ now().replace(hour=23, minute=59, second=59).isoformat() }}"
+
 create_and_clear_reservation:
   sequence:
     - service: dvsportal.create_reservation
@@ -58,14 +77,17 @@ create_and_clear_reservation:
         value: none
 ```
 
-Reload your scripts after adding these.
+Reload scripts after adding them.
+
+---
 
 ## Step 3: Create the Dashboard
 
-1. Navigate to **Overview** > **Dashboards**.
-2. Click on the **+** button to add a new dashboard.
-3. Choose **Manual**.
-4. Paste the following YAML code into the editor.
+1. Go to **Overview** → **Dashboards**
+2. Click **+** → **Manual**
+3. Paste the YAML below
+
+### Dashboard YAML
 
 ```yaml
 type: vertical-stack
@@ -76,6 +98,7 @@ cards:
     entities:
       - entity: sensor.guest_parking_balance
       - entity: sensor.reservations
+
   - type: custom:auto-entities
     card:
       type: glance
@@ -84,7 +107,7 @@ cards:
       include:
         - domain: sensor
           attributes:
-            device_class: dvs_car_sensor
+            dvs_entity: car
           state: not present
           options:
             tap_action:
@@ -92,6 +115,7 @@ cards:
               service: script.dvsportal_parkingreservation_endofday
               service_data:
                 entity_id: this.entity_id
+
   - type: custom:auto-entities
     card:
       type: glance
@@ -100,7 +124,7 @@ cards:
       include:
         - domain: sensor
           attributes:
-            device_class: dvs_car_sensor
+            dvs_entity: car
           state: /^(reserved|present)$/
           options:
             tap_action:
@@ -108,6 +132,7 @@ cards:
               service: dvsportal.end_reservation
               service_data:
                 entity_id: this.entity_id
+
   - type: entities
     title: New car
     entities:
@@ -115,6 +140,6 @@ cards:
       - entity: script.create_and_clear_reservation
 ```
 
-5. Save the dashboard.
+4. Save the dashboard
 
-You should now have a fully functional DVS Portal Dashboard!
+You should now have a fully functional DVS Portal dashboard.
