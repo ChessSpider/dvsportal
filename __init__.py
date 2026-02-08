@@ -4,11 +4,11 @@ This integration allows Home Assistant to interact with the DVS Portal API,
 retrieving data such as parking balance, and managing car reservations.
 """
 
+import asyncio
 from dataclasses import dataclass
 import logging
 
 from dvsportal import DVSPortal, exceptions as dvs_exceptions
-
 from homeassistant import exceptions
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME
@@ -18,6 +18,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect
 
 from .const import DOMAIN
 from .coordinator import DVSPortalCoordinator
+from .services import async_register_services
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -37,6 +38,12 @@ class DVSPortalRuntimeData:
 type DVSPortalConfigEntry = ConfigEntry[DVSPortalRuntimeData]
 
 
+async def async_setup(hass: HomeAssistant, config: dict) -> bool:
+    """Set up integration-wide things."""
+    await async_register_services(hass)
+    return True
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: DVSPortalConfigEntry) -> bool:
     """Set up the dvsportal component from a config entry."""
 
@@ -54,8 +61,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: DVSPortalConfigEntry) ->
         unload_ok = await hass.config_entries.async_forward_entry_unload(
             entry, "sensor"
         )
-        if unload_ok:
-            hass.data[DOMAIN].pop(entry.entry_id)
 
         return unload_ok
 
