@@ -1,6 +1,6 @@
 """Setup balance and reservation sensors."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
@@ -11,7 +11,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import DVSPortalConfigEntry
 from .coordinator import DVSPortalCoordinator
-from .entity import DVSCarSensor
+from .entity import DVSCarSensor, parse_datetime
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -128,23 +128,17 @@ class ActiveReservationsSensor(CoordinatorEntity[DVSPortalCoordinator], SensorEn
         """Calculate count of current and future reservations."""
         active_reservations = list(self.coordinator.data.active_reservations.values())
 
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
 
         active_licenseplates = []
         future_licenseplates = []
 
         for reservation in active_reservations:
-            valid_until = datetime.strptime(
-                str(reservation.get("valid_until", "1900-01-01T00:00:00")).split(
-                    ".", maxsplit=1
-                )[0],
-                "%Y-%m-%dT%H:%M:%S",
+            valid_until = parse_datetime(
+                reservation.get("valid_until", "1900-01-01T00:00:00")
             )
-            valid_from = datetime.strptime(
-                str(reservation.get("valid_from", "1900-01-01T00:00:00")).split(
-                    ".", maxsplit=1
-                )[0],
-                "%Y-%m-%dT%H:%M:%S",
+            valid_from = parse_datetime(
+                reservation.get("valid_from", "1900-01-01T00:00:00")
             )
             license_plate = reservation.get("license_plate")
 
