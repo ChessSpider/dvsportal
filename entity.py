@@ -1,6 +1,6 @@
 """Setup car sensors."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.core import callback
@@ -8,6 +8,25 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import DVSPortalConfigEntry
 from .coordinator import DVSPortalCoordinator
+
+
+def parse_datetime(value: str | datetime) -> datetime:
+    """Parse a gateway datetime into a timezone-aware UTC datetime.
+
+    Portals may return ISO strings with a trailing ``Z`` (e.g.
+    ``2026-08-21T21:59:00Z``), microseconds, or naive datetimes. ``strptime``
+    / ``fromisoformat`` fail on ``Z`` or produce naive values that cannot be
+    compared with an aware ``now()``, so normalize everything to aware UTC.
+    """
+    if isinstance(value, datetime):
+        value = value.isoformat()
+    value = str(value)
+    if value.endswith("Z"):
+        value = value[:-1] + "+00:00"
+    dt = datetime.fromisoformat(value)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
 
 
 class DVSCarSensor(CoordinatorEntity[DVSPortalCoordinator], SensorEntity):
@@ -72,13 +91,9 @@ class DVSCarSensor(CoordinatorEntity[DVSPortalCoordinator], SensorEntity):
 
         self._attr_extra_state_attributes.update(reservation)
 
-        now = datetime.now()
-        valid_from = datetime.fromisoformat(
-            reservation["valid_from"].split(".", maxsplit=1)[0]
-        )
-        valid_until = datetime.fromisoformat(
-            reservation["valid_until"].split(".", maxsplit=1)[0]
-        )
+        now = datetime.now(timezone.utc)
+        valid_from = parse_datetime(reservation["valid_from"])
+        valid_until = parse_datetime(reservation["valid_until"])
 
         self._attr_native_value = (
             "present" if valid_from <= now < valid_until else "reserved"
